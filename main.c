@@ -51,8 +51,8 @@
 
 //#define PROFILE_ON
 
-#define SAMPLES 512 // AXI4 Streaming Data FIFO has size 512
-#define DOWN_SAMPLES 2
+#define SAMPLES 1024 // AXI4 Streaming Data FIFO has size 512
+#define DOWN_SAMPLES 4
 //#define SAMPLES 128 // AXI4 Streaming Data FIFO has size 512
 #define M 8 //2^m=samples
 #define CLOCK 100000000.0 //clock speed
