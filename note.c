@@ -1,4 +1,5 @@
 #include "note.h"
+#include "xil_printf.h"
 //#include "lcd.h"
 
 //array to store note names for findNote
@@ -33,6 +34,8 @@ void findNote(float f) {
 		r=r*root2;
 		note++;
 	}
+
+//	xil_printf("Note: %s\n", notes[note]);
 
    /*
 	//determine which note frequency is closest to

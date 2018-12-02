@@ -12,7 +12,7 @@ Returns
 #ifndef TRIG_H
 #define TRIG_H
 
-#define PI 3.14159265
+#include "fft.h"
 
 int factorial(int a); 
 float sine(float x);

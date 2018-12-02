@@ -2,9 +2,27 @@
 #include "complex.h"
 #include "trig.h"
 #include <xil_printf.h>
+#include "stream_grabber.h"
 
 static float new_[512];
 static float new_im[512];
+
+void read_fsl_values(float* q, int n) {
+   int i;
+   unsigned int x;
+//   stream_grabber_wait_enough_samples(512);
+   stream_grabber_wait_enough_samples(SAMPLES);
+   for(i = 0; i < n; i+=DOWN_SAMPLES) {
+//      int_buffer[i] = stream_grabber_read_sample(i);
+//      int_buffer[i+1] = stream_grabber_read_sample(i+1);
+//      int_buffer[i+2] = stream_grabber_read_sample(i+2);
+//      int_buffer[i+3] = stream_grabber_read_sample(i+3);
+      // xil_printf("%d\n",int_buffer[i]);
+//      x = (stream_grabber_read_sample(i)+ stream_grabber_read_sample(i+1)+ stream_grabber_read_sample(i+2)+stream_grabber_read_sample(i+3))/4;
+	   x = stream_grabber_read_sample(i);
+	   q[i/DOWN_SAMPLES] = .000000049173832*x;
+   }
+}
 
 /*
 q: input signals

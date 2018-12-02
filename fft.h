@@ -26,6 +26,12 @@ Returns
 #define FFT_H
 
 #define PI 3.141592//65358979323846
+#define SAMPLES 1024 // AXI4 Streaming Data FIFO has size 512
+#define DOWN_SAMPLES 4
+#define M 8 //2^m=samples
+#define CLOCK 100000000.0 //clock speed
+
+void read_fsl_values(float* q, int n);
 
 float fft(float* q, float* w, int n, int m, float sample_f);
 
