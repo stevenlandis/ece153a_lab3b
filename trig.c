@@ -2,6 +2,8 @@
 #include <xil_printf.h>
 #include "trigTables.h"
 
+#define PI 3.141592//65358979323846
+
 //void setTrigTables() {
 //	xil_printf("Starting to set trig tables\n");
 //	for (int k = 0; k < 512; k++) {

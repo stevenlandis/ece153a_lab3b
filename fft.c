@@ -4,23 +4,90 @@
 #include <xil_printf.h>
 #include "stream_grabber.h"
 
+#define PI 3.141592//65358979323846
+#define SAMPLES 4096 // AXI4 Streaming Data FIFO has size 512
+#define DOWN_SAMPLES 8
+#define FFT_SAMPLES SAMPLES/DOWN_SAMPLES
+#define M 9 //2^m=samples
+
 static float new_[512];
 static float new_im[512];
 
+// Buffers for storing samples and doing fourier transform
+static float q[FFT_SAMPLES];
+static float w[FFT_SAMPLES];
+
+void get_fft_samples() {
+	read_fsl_values(q, SAMPLES);
+}
+
+float do_zero_cross_fft() {
+	int cycles = 0;
+
+	// lastVal: Lazy Enum
+	//  0: last value was zero (for initial)
+	//  1: last non-zero value was positive
+	//  2: last non-zero value was negative
+	int lastVal = 0;
+
+	for (int i = 1; i < FFT_SAMPLES; i++) {
+		xil_printf("%d: %d\n", lastVal, (int)q[i]);
+		switch(lastVal) {
+		case 0:
+			if (q[i] < 0) lastVal = -1;
+			else if (q[i] > 0) lastVal = 1;
+			break;
+		case 1:
+			if (q[i] < 0) {
+				lastVal = 2;
+				cycles++;
+			}
+			break;
+		case 2:
+			if (q[i] > 0) {
+				lastVal = 1;
+				cycles++;
+			}
+			break;
+		}
+	}
+
+	xil_printf("c: %d\n", cycles);
+
+	float sample_f = 100*1000*1000/2048.0/DOWN_SAMPLES;
+
+	return ((float)cycles) / FFT_SAMPLES * sample_f;
+}
+
+float do_fft() {
+	float sample_f = 100*1000*1000/2048.0/DOWN_SAMPLES;
+	  //xil_printf("sample frequency: %d \r\n",(int)sample_f);
+
+	  //zero w array
+	  for(int l=0;l<SAMPLES/DOWN_SAMPLES;l++)
+		 w[l]=0;
+
+	  return fft(q,w,SAMPLES/DOWN_SAMPLES,M,sample_f);
+}
+
 void read_fsl_values(float* q, int n) {
-   int i;
+   int i,j;
    unsigned int x;
 //   stream_grabber_wait_enough_samples(512);
    stream_grabber_wait_enough_samples(SAMPLES);
    for(i = 0; i < n; i+=DOWN_SAMPLES) {
+	   x = 0;
+	   for (j = 0; j < DOWN_SAMPLES; j++) {
+		   x+=stream_grabber_read_sample(i+j);
+	   }
 //      int_buffer[i] = stream_grabber_read_sample(i);
 //      int_buffer[i+1] = stream_grabber_read_sample(i+1);
 //      int_buffer[i+2] = stream_grabber_read_sample(i+2);
 //      int_buffer[i+3] = stream_grabber_read_sample(i+3);
       // xil_printf("%d\n",int_buffer[i]);
 //      x = (stream_grabber_read_sample(i)+ stream_grabber_read_sample(i+1)+ stream_grabber_read_sample(i+2)+stream_grabber_read_sample(i+3))/4;
-	   x = stream_grabber_read_sample(i);
-	   q[i/DOWN_SAMPLES] = .000000049173832*x;
+//	   x = stream_grabber_read_sample(i);
+	   q[i/DOWN_SAMPLES] = .000000049173832/DOWN_SAMPLES*x;
    }
 }
 
@@ -116,6 +183,8 @@ float fft(float* q, float* w, int n, int m, float sample_f) {
 		}
 	}
 	
+	//xil_printf("p: %d\n",place);
+
 	float s=sample_f/n; //spacing of bins
 	
 	frequency = s*place;

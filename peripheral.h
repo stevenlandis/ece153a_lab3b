@@ -31,5 +31,6 @@ void TwistHandler(void *CallbackRef);
 void TimerHandler(void * CallbackRef);
 
 void per_init();
+void per_init2();
 
 #endif /* SRC_PERIPHERAL_H_ */

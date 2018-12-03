@@ -9,6 +9,7 @@
 
 // include files for functions to call in interrupts
 #include "timing.h"
+#include "state_machine.h"
 
 XGpio per_encoder;
 //static XGpio per_btns;
@@ -16,6 +17,91 @@ XGpio per_leds;
 XGpio per_dc;
 XSpi per_spi;
 XTmrCtr per_timer;
+
+void connect_interrupt(u8 id, XInterruptHandler handler) {
+	XIntc_Connect(
+		&per_intc,
+		id,
+		handler,
+		&per_encoder
+	);
+	XIntc_Enable(&per_intc, id);
+}
+
+void per_init2() {
+	u32 controlReg;
+
+	//  Initialize the interrupt controller (has to be first)
+	XIntc_Initialize(&per_intc, XPAR_MICROBLAZE_0_AXI_INTC_DEVICE_ID);
+
+	// --------------------
+	//  Set up Peripherals
+	// --------------------
+
+	// 16 Leds
+		XGpio_Initialize(&per_leds, XPAR_LEDS_DEVICE_ID);
+
+	// encoder
+		XGpio_Initialize(&per_encoder, XPAR_ENCODER_DEVICE_ID);
+		connect_interrupt(
+			XPAR_MICROBLAZE_0_AXI_INTC_ENCODER_IP2INTC_IRPT_INTR,
+			TwistHandler);
+
+		XGpio_InterruptEnable(&per_encoder, 1);
+		XGpio_InterruptGlobalEnable(&per_encoder);
+		XGpio_SetDataDirection(&per_encoder, 1, 0xFFFFFFFF);
+
+	// lcd dc
+		XGpio_Initialize(&per_dc, XPAR_SPI_DC_DEVICE_ID);
+		XGpio_SetDataDirection(&per_dc, 1, 0x0);
+
+	// lcd spi
+		XSpi_Config *spiConfig;	/* Pointer to Configuration data */
+		spiConfig = XSpi_LookupConfig(XPAR_SPI_DEVICE_ID);
+		XSpi_CfgInitialize(&per_spi, spiConfig, spiConfig->BaseAddress);
+		XSpi_Reset(&per_spi);
+
+		// Setup the control register to enable master mode
+		controlReg = XSpi_GetControlReg(&per_spi);
+		XSpi_SetControlReg(&per_spi,
+				(controlReg | XSP_CR_ENABLE_MASK | XSP_CR_MASTER_MODE_MASK) &
+				(~XSP_CR_TRANS_INHIBIT_MASK));
+
+		// Select 1st slave device
+		XSpi_SetSlaveSelectReg(&per_spi, ~0x01);
+
+		// initialize the LCD
+		initLCD();
+
+	// timer
+		XTmrCtr_Initialize(&per_timer, XPAR_AXI_TIMER_0_DEVICE_ID);
+		connect_interrupt(
+			XPAR_MICROBLAZE_0_AXI_INTC_AXI_TIMER_0_INTERRUPT_INTR,
+			TimerHandler);
+
+		// set options for the first timer
+		controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
+		XTmrCtr_SetOptions(&per_timer, 0, controlReg);
+
+		// set options for the second timer
+		XTmrCtr_SetOptions(&per_timer, 1,
+			XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION);
+		XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
+
+	// ---------------------------------
+	//  Enable Interrupts on Microblaze
+	// ---------------------------------
+
+	XIntc_Start(&per_intc, XIN_REAL_MODE);
+
+	// connect interrupt controller to microblaze
+	microblaze_register_handler(
+			(XInterruptHandler)XIntc_DeviceInterruptHandler,
+		(void*)XPAR_MICROBLAZE_0_AXI_INTC_DEVICE_ID
+	);
+
+	microblaze_enable_interrupts();
+}
 
 void per_init() {
 	// 16 leds
@@ -101,8 +187,9 @@ void per_init() {
 	XTmrCtr_SetOptions(&per_timer, 0, controlReg);
 
 	// set options for the second timer
-	XTmrCtr_SetOptions(&per_timer, 1, XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION);
-	XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-TIMER_DELAY);
+	XTmrCtr_SetOptions(&per_timer, 1,
+		XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION | XTC_DOWN_COUNT_OPTION);
+	XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
 	XTmrCtr_SetResetValue(&per_timer, 1, TIMER_DELAY);
 
 	// Setup the control register to enable master mode
@@ -133,11 +220,12 @@ void per_init() {
 // Encoder
 void TwistHandler(void *CallbackRef) {
 	u32 data = XGpio_DiscreteRead(&per_encoder, 1);
+
+	// write to led
 	XGpio_DiscreteWrite(&per_leds, 1, data);
 
-//	updateEncoderState(data);
-	// start the timer
-//	XTmrCtr_Start(&per_timer, 0);
+	// call update function from state machine
+	encoderHandler(data);
 
 	// mark interrupt as handled
 	XGpio_InterruptClear(&per_encoder, 0xFFFFFFFF);
@@ -146,8 +234,9 @@ void TwistHandler(void *CallbackRef) {
 // Timer
 void TimerHandler(void * CallbackRef) {
 //	xil_printf("t");
+	XGpio_DiscreteWrite(&per_leds, 1, 0xAAAA);
 
-	pollCode();
+//	pollCode();
 
 	// acknowledge that interrupt handled
 	u32 controlReg = XTimerCtr_ReadReg(per_timer.BaseAddress, 1, XTC_TCSR_OFFSET);
