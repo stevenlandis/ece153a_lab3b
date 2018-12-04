@@ -20,7 +20,14 @@ Returns
 #define NOTE_H 
 
 #define root2 1.0594631 //twelfth root of 2
+#define root1200 1.000577790 // 1/1200 root of 2
 
-void findNote(float f);
+void setA4(float A4);
+char* findNote(float f);
+int findNoteFreq(float f);
+void getFreqInfo(float f);
+int getCents(float f);
+int getOctave(float f);
+int getNoteN(float f);
 
 #endif

@@ -19,8 +19,47 @@ int main() {
    float tot_time; //time to run program
    init_platform();
 
+//   xil_printf("Starting\n");
+//   setA4(440);
+//   for (int i = 0; i < 500; i++) {
+//	   getFreqInfo(i);
+//   }
+//   return 0;
+
    // set up peripherals
    per_init2();
+
+//   setColor(0,0,255);
+//   fillRect(0,0,240-1,320-1);
+
+//   drawOctave(4);
+//   eraseOctave();
+//   drawNote(440);
+//   eraseNote();
+
+//   drawFreq(12345678);
+//   eraseFreq();
+
+//   drawCents(100);
+//   eraseCents();
+
+//   drawGoalBar();
+//   eraseGoalBar();
+//
+//   drawFreqBar(-20, 20);
+//   drawFreqBar(0, -20);
+//   drawFreqBar(50, 0);
+//
+//   eraseFreqBar(50);
+//   eraseGoalBar();
+//
+//   drawMenuItem(0, "stuff");
+//   drawMenuItem(1, "things");
+//   drawMenuItem(5, "and");
+//   drawMenuMarker(0);
+//   drawMenuMarker(1);
+//   drawMenuMarker(5);
+//   return 0;
 
    // initialize state machine
    SM_init();

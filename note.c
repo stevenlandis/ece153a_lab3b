@@ -1,12 +1,26 @@
 #include "note.h"
 #include "xil_printf.h"
+#include "math.h"
 //#include "lcd.h"
 
 //array to store note names for findNote
-static char notes[12][3]={"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+static char notes[12][3]={"C ","C#","D ","D#","E ","F ","F#","G ","G#","A ","A#","B "};
+
+static const float a4_to_c0 = 1/(16*root2*root2*root2*root2*root2*root2*root2*root2*root2);
+float C0;
+
+void setA4(float A4) {
+	C0 = A4* a4_to_c0;
+}
+
+float fLog(float f) {
+	if (f < C0) return 0;
+	return log2f(f/C0);
+}
 
 //finds and prints note of frequency and deviation from note
-void findNote(float f) {
+//finds and prints note of frequency and deviation from note
+char* findNote(float f) {
 	float c=261.63;
 	float r;
 	int oct=4;
@@ -37,25 +51,155 @@ void findNote(float f) {
 
 //	xil_printf("Note: %s\n", notes[note]);
 
-   /*
+
 	//determine which note frequency is closest to
 	if((f-c) <= (r-f)) { //closer to left note
-		WriteString("N:");
-		WriteString(notes[note]);
-		WriteInt(oct);
-		WriteString(" D:+");
-		WriteInt((int)(f-c+.5));
-		WriteString("Hz");
+//		WriteString("N:");
+//		WriteString(notes[note]);
+//		WriteInt(oct);
+//		WriteString(" D:+");
+//		WriteInt((int)(f-c+.5));
+//		WriteString("Hz");
 	}
 	else { //f closer to right note
 		note++;
 		if(note >=12) note=0;
-		WriteString("N:");
-		WriteString(notes[note]);
-		WriteInt(oct);
-		WriteString(" D:-");
-		WriteInt((int)(r-f+.5));
-		WriteString("Hz");
+//		WriteString("N:");
+//		WriteString(notes[note]);
+//		WriteInt(oct);
+//		WriteString(" D:-");
+//		WriteInt((int)(r-f+.5));
+//		WriteString("Hz");
 	}
-   */
+	return notes[note];
+
+}
+
+int getOctave(float f) {
+	return floor(fLog(f));
+
+//	int res = 0;
+//	float fC0 = fA4 * a4_to_c0;
+//	while (f > fC0) {
+//		f /= 2;
+//		res++;
+//	}
+//
+//	return res-1;
+}
+
+int getNoteN(float f) {
+	float fl = fLog(f);
+
+	return floor(12*(fl - floor(fl)));
+}
+
+void getFreqInfo(float f) {
+	int oct = 0;
+	int note = 0;
+	int cents = 0;
+	float testF = C0;
+
+	xil_printf("f: %d ==> ",(int)f);
+
+	while (2*testF <= f) {
+//		xil_printf("testF: %d\n",(int)testF);
+		testF *= 2;
+		oct++;
+	}
+
+	xil_printf("o:%d",oct);
+
+	while (root2*testF <= f) {
+//		xil_printf("testF: %d\n",(int)testF);
+		testF *= root2;
+		note++;
+	}
+
+	xil_printf(", n:%d",note);
+
+	while (root1200*testF <= f) {
+		testF *= root1200;
+		cents++;
+	}
+	xil_printf(", c:%d\n",cents);
+}
+
+int findNoteFreq(float f) {
+	float c=261.63;
+	float r;
+	int oct=4;
+	int note=0;
+	//determine which octave frequency is in
+	if(f >= c) {
+		while(f > c*2) {
+			c=c*2;
+			oct++;
+		}
+	}
+	else { //f < C4
+		while(f < c) {
+			c=c/2;
+			oct--;
+		}
+
+	}
+
+	//find note below frequency
+	//c=middle C
+	r=c*root2;
+	while(f > r) {
+		c=c*root2;
+		r=r*root2;
+		note++;
+	}
+
+//	xil_printf("Note: %s\n", notes[note]);
+
+
+	//determine which note frequency is closest to
+	if((f-c) <= (r-f)) { //closer to left note
+//		WriteString("N:");
+//		WriteString(notes[note]);
+//		WriteInt(oct);
+//		WriteString(" D:+");
+//		WriteInt((int)(f-c+.5));
+//		WriteString("Hz");
+		return (int)(c+.5);
+	}
+	else { //f closer to right note
+		note++;
+		if(note >=12) note=0;
+//		WriteString("N:");
+//		WriteString(notes[note]);
+//		WriteInt(oct);
+//		WriteString(" D:-");
+//		WriteInt((int)(r-f+.5));
+//		WriteString("Hz");
+		return (int)(r+.5);
+	}
+
+
+}
+
+int getCents(float f){
+	int noteDif;
+	int dif;
+	float bin;
+	int noteFreq = findNoteFreq(f);
+	if(f<noteFreq){ //current freq is below ideal note
+		int lowNote = noteFreq /root2;
+		noteDif = noteFreq-lowNote;
+		bin=((float)noteDif)*.01;
+		dif = noteFreq-f;
+		return -1.0*dif/bin;
+
+	}
+	else{ //current freq is above ideal note
+		int highNote = noteFreq * root2;
+		noteDif = highNote-noteFreq;
+		bin=((float)noteDif)*.01;
+		dif = f-noteFreq;
+		return dif/bin;
+	}
 }

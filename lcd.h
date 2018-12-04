@@ -44,6 +44,19 @@
   examples and tools supplied with the library.
 */
 
+/*
+  Wire connector mapping
+  Looking at JB straight on
+  LCD vertical with wires on the table
+
+  LCD Wires:
+  	  w, b, g, y1, grey, o, r, y2
+
+  JB:
+  	  y2	b	g	r	o	grey
+  	  w		X	X	X	X	y1
+*/
+
 #ifndef LCD_H_
 #define LCD_H_
 
@@ -83,9 +96,9 @@ extern int bch; // Background color upper byte
 extern int bcl; // Background color lower byte
 
 extern struct _current_font cfont;
-extern u8 SmallFont[];
+//extern u8 SmallFont[];
 extern u8 BigFont[];
-extern u8 SevenSegNumFont[];
+//extern u8 SevenSegNumFont[];
 
 u32 LCD_Read(char VL);
 void LCD_Write_COM(char VL);  
@@ -103,6 +116,31 @@ void clrScr(void);
 void drawHLine(int x, int y, int l);
 void fillRect(int x1, int y1, int x2, int y2);
 void fillBackground(int x1, int y1, int x2, int y2);
+
+// Draw and erase functions
+
+// main screen
+void drawOctave(int octave);
+void eraseOctave();
+void drawNote(float f);
+void eraseNote();
+void drawFreq(float f);
+void eraseFreq();
+void drawCents(int cents);
+void eraseCents();
+void drawVolume(int cur_vol);
+void eraseVolume();
+void drawGoalBar();
+void eraseGoalBar();
+void drawFreqBar(int cents, int prevCents);
+void eraseFreqBar(int prevCents);
+
+// menu
+void drawMenuMarker(int i);
+void eraseMenuMarker();
+void drawMenuItem(int i, char* txt);
+void eraseMenuItem(int i);
+
 void drawVolume(int cur_vol);
 void clearVolume();
 void drawMode(int m);

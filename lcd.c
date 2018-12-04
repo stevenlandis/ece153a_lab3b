@@ -46,6 +46,7 @@
 
 #include "lcd.h"
 #include "math.h"
+#include "note.h"
 
 // Global variables
 int fch;
@@ -57,6 +58,8 @@ struct _current_font cfont;
 #define LCD_WIDTH 240
 #define LCD_HEIGHT 320
 
+#define BACKGROUND 100,100,100
+
 #define sliderWidth (63*2)
 #define sliderHeight (sliderWidth/4)
 #define sliderMargin 20
@@ -67,7 +70,6 @@ struct _current_font cfont;
 #define box_y (320 - boxMargin - boxHeight)
 #define slider_x (box_x + sliderMargin)
 #define slider_y (box_y + sliderMargin)
-
 
 // Read data from LCD controller
 // FIXME: not work
@@ -214,7 +216,7 @@ void initLCD(void)
     fcl = 0xFF;
     bch = 0x00;
     bcl = 0x00;
-    setFont(SmallFont);
+    setFont(BigFont);
 }
 
 
@@ -306,6 +308,14 @@ void fillRect(int x1, int y1, int x2, int y2)
     }
 
    clrXY();
+}
+
+void fillRectWH(int x, int y, int w, int h) {
+	setXY(x,y,x+w-1,y+h-1);
+
+	for (int i = 0; i < w*h; i++) {
+		LCD_Write_DATA16(fch, fcl);
+	}
 }
 
 int normalPattern(int x, int y) {
@@ -412,6 +422,234 @@ void fillBackground(int x1, int y1, int x2, int y2)
 
    clrXY();
 }
+
+void drawOctave(int n){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+	printChar(n+'0',120-8,25);
+}
+
+void eraseOctave() {
+	setColor(BACKGROUND);
+	fillRect(120-8,25,120+8-1,25+16-1);
+}
+
+void drawNote(float f){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+	char* note = findNote(f);
+//	xil_printf("%s\n", note);
+	printChar(note[0],104-8,25);
+	printChar(note[1],136-8,25);
+//	lcdPrint(note, 104-8,25);
+}
+
+void eraseNote() {
+	setColor(BACKGROUND);
+	fillRect(104-8,25,104-8+16-1,25+16-1);
+	fillRect(136-8,25,136-8+16-1,25+16-1);
+}
+
+void drawFreq(float f){
+	setColor(255,255,255);
+	int temp = (int)(f+0.5);
+	int x = 128;
+	int i = 0;
+
+	while (i < 5) {
+		printChar(temp%10 + '0', x, 50);
+		temp /= 10;
+		x -= 16;
+		i++;
+	}
+
+//	int mul;
+//	if(temp>9999){
+//		mul = temp/10000;
+//		printChar(mul+'0',64,50);
+//		temp-=(mul*10000);
+//	}
+//	else{
+//		printChar('0',64,50);
+//	}
+//	if(temp>999){
+//		mul = temp/1000;
+//		printChar(mul+'0',80,50);
+//		temp-=mul*1000;
+//	}
+//	else{
+//		printChar('0',80,50);
+//	}
+//	if(temp>99){
+//		mul = temp/100;
+//		printChar(mul+'0',96,50);
+//		temp-=mul*100;
+//	}
+//	else{
+//		printChar('0',96,50);
+//	}
+//	if(temp>9){
+//		mul = temp/10;
+//		printChar(mul+'0',112,50);
+//		temp-=mul*10;
+//	}
+//	else{
+//		printChar('0',112,50);
+//	}
+//	if(temp>.9){
+//		printChar(temp+'0',128,50);
+//	}
+//	else{
+//		printChar('0',128,50);
+//	}
+	lcdPrint("Hz",144,50);
+}
+
+void eraseFreq() {
+	setColor(BACKGROUND);
+	fillRect(
+		128-4*16,
+		50,
+		128+3*16-1,
+		50+16-1);
+}
+
+void drawCents(int cents){
+	int mul;
+	if(cents>51 || cents<-51){
+		printChar('+',56,75);
+		printChar('0',72,75);
+		printChar('0',88,75);
+	} else {
+		if(cents<0){
+			cents*=-1;
+			printChar('-',56,75);
+		}
+		else{
+			printChar('+',56,75);
+		}
+		if(cents>9){
+			mul = cents/10;
+			printChar(mul+'0',72,75);
+			cents-=mul*10;
+		}
+		else{
+			printChar('0',72,75);
+		}
+		if(cents>.9){
+			printChar(cents+'0',88,75);
+		}
+		else{
+			printChar('0',88,75);
+		}
+	}
+	lcdPrint("cents",104,75);
+}
+
+void eraseCents() {
+	setColor(BACKGROUND);
+	fillRect(
+		56,
+		75,
+		56+8*16-1,
+		75+16-1);
+}
+
+void drawGoalBar(){
+	setColor(255,255,255);
+	fillRect(118,200,122,289);
+}
+
+void eraseGoalBar() {
+	setColor(BACKGROUND);
+	fillRect(118,200,122,289);
+}
+
+void drawFreqBar(int cents,int prevCents){
+	eraseFreqBar(prevCents);
+	if(cents>-6 && cents<6){
+		setColor(0,255,0);
+		fillRect(118+cents,222,122+cents,267);
+	}
+	else{
+		setColor(255,0,0);
+		fillRect(118+cents,222,122+cents,267);
+	}
+}
+
+void eraseFreqBar(int prevCents) {
+	setColor(BACKGROUND);
+	fillRect(118+prevCents,222,122+prevCents,267);
+
+	drawGoalBar();
+}
+
+#define MENU_MARGIN 20
+#define MENU_GAP 10
+#define MARKER_SIZE 6
+static int prevMenu = 0;
+void drawMenuMarker(int i) {
+	eraseMenuMarker();
+
+	prevMenu = i;
+	setColor(255,255,255);
+	fillRectWH(
+		MENU_MARGIN,
+		MENU_MARGIN+prevMenu*(16+MENU_GAP)+(16-MARKER_SIZE)/2,
+		MARKER_SIZE,
+		MARKER_SIZE);
+//	fillRect(
+//			MENU_MARGIN,
+//			MENU_MARGIN+16*prevMenu+6,
+//			MENU_MARGIN+MARKER_SIZE-1,
+//			MENU_MARGIN+16*prevMenu+6+MARKER_SIZE-1
+//		);
+}
+
+// erase marker at prevMenu
+void eraseMenuMarker() {
+	setColor(BACKGROUND);
+	fillRectWH(
+		MENU_MARGIN,
+		MENU_MARGIN+prevMenu*(16+MENU_GAP)+(16-MARKER_SIZE)/2,
+		MARKER_SIZE,
+		MARKER_SIZE);
+}
+
+void drawMenuItem(int i, char* txt) {
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+
+	lcdPrint(txt,
+		MENU_MARGIN + 2*MARKER_SIZE,
+		MENU_MARGIN + i*(16+MENU_GAP));
+}
+
+void eraseMenuItem(int i) {
+	setColor(BACKGROUND);
+	fillRectWH(
+		MENU_MARGIN + 2*MARKER_SIZE,
+		MENU_MARGIN + i*(16+MENU_GAP),
+		10*16,
+		16);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 static int prev_vol = 0;
 

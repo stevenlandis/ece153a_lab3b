@@ -1,6 +1,7 @@
 #include "state_machine.h"
 #include "qpn_port.h"
 #include "xil_printf.h"
+#include "note.h"
 
 // --------------------------------
 //  Type and Variable Declarations
@@ -13,36 +14,6 @@ enum Lab3bSignals {
 };
 
 static QEvent l_lab2aQueue[30];
-
-// declare struct for state machine
-typedef struct Lab3b_SM_Tag {
-	QActive super;
-
-	// internal data
-	int note;
-	int octave;
-	int sharp;
-	float f;
-	float cents;
-	int menuChoice;
-
-	// draw/erase flags
-	int drawBackground;
-	int drawNote, eraseNote;
-	int drawOctave, eraseOctave;
-	int drawSharp, eraseSharp;
-	int drawF, eraseF;
-	int drawFHz, eraseFHz;
-	int drawCents, eraseCents;
-	int drawErrorBlackLine, eraseErrorBlackLine;
-	int drawErrorRedLine, eraseErrorRedLine;
-	int drawMenuOctave, eraseMenuOctave;
-	int drawMenuA4, eraseMenuA4;
-	int drawChoiceOctave, eraseChoiceOctave;
-	int drawChoiceA4, eraseChoiceA4;
-	int drawA4Hz, eraseA4Hz;
-
-} Lab3b_SM;
 
 // declare main state machine
 Lab3b_SM SM_SM;
@@ -59,7 +30,8 @@ volatile unsigned int encoderState = 0;
 // --------------------------------
 void SM_ctor();
 QState SM_state_init(Lab3b_SM* me);
-QState SM_state_on(Lab3b_SM* me);
+QState SM_state_main(Lab3b_SM* me);
+QState SM_state_menu(Lab3b_SM* me);
 void updateEncoderState(u32 data);
 void twistDown();
 void twistUp();
@@ -161,27 +133,22 @@ void SM_ctor() {
 
 	//initialize internal variables
 	// internal data
-	me->note = 0;
 	me->octave = 0;
-	me->sharp = 0;
 	me->f = 0;
 	me->cents = 0;
+	me->prevCents = 0;
 	me->menuChoice = 0;
 
 	// draw/erase flags
 	me->drawBackground = 0;
 	me->drawNote = me->eraseNote = 0;
 	me->drawOctave = me->eraseOctave = 0;
-	me->drawSharp = me->eraseSharp = 0;
-	me->drawF = me->eraseF = 0;
-	me->drawFHz = me->eraseFHz = 0;
+	me->drawFreq = me->eraseFreq = 0;
 	me->drawCents = me->eraseCents = 0;
-	me->drawErrorBlackLine = me->eraseErrorBlackLine = 0;
-	me->drawErrorRedLine = me->eraseErrorRedLine = 0;
-	me->drawMenuOctave = me->eraseMenuOctave = 0;
-	me->drawMenuA4 = me->eraseMenuA4 = 0;
-	me->drawChoiceOctave = me->eraseChoiceOctave = 0;
-	me->drawChoiceA4 = me->eraseChoiceA4 = 0;
+	me->drawGoalBar = me->eraseGoalBar = 0;
+	me->drawFreqBar = me->eraseFreqBar = 0;
+	me->drawMenuItems = me->eraseMenuItems = 0;
+	me->drawMenuMarker = me->eraseMenuMarker = 0;
 	me->drawA4Hz = me->eraseA4Hz = 0;
 
 	QActive_ctor(&me->super, (QStateHandler)&SM_state_init);
@@ -190,19 +157,88 @@ void SM_ctor() {
 // first starting, screen in unknown state
 QState SM_state_init(Lab3b_SM *me) {
 	xil_printf("init\n");
-    return Q_TRAN(&SM_state_on);
+	me->drawBackground = 1;
+	setA4(440);
+    return Q_TRAN(&SM_state_main);
 }
 
-QState SM_state_on(Lab3b_SM *me) {
+QState SM_state_main(Lab3b_SM *me) {
 	switch (Q_SIG(me)) {
 		case Q_ENTRY_SIG: {
-			xil_printf("on-entry\n");
+//			xil_printf("on-entry\n");
+			me->drawNote = 1;
+			me->drawOctave = 1;
+			me->drawFreq = 1;
+			me->drawCents = 1;
+			me->drawGoalBar = 1;
+			me->drawFreqBar = 1;
 			return Q_HANDLED();
 			}
 
 		case Q_INIT_SIG: {
-			xil_printf("on-init\n");
+//			xil_printf("on-init\n");
 			return Q_HANDLED();
+		}
+
+		case Q_EXIT_SIG: {
+			me->drawNote = 0;
+			me->drawOctave = 0;
+			me->drawFreq = 0;
+			me->drawCents = 0;
+			me->drawGoalBar = 0;
+			me->drawFreqBar = 0;
+
+			me->eraseNote = 1;
+			me->eraseOctave = 1;
+			me->eraseFreq = 1;
+			me->eraseCents = 1;
+			me->eraseGoalBar = 1;
+			me->eraseFreqBar = 1;
+
+			return Q_HANDLED();
+		}
+
+		case ENCODER_CLICK:
+			return Q_TRAN(&SM_state_menu);
+	}
+
+	return Q_SUPER(&QHsm_top);
+}
+
+QState SM_state_menu(Lab3b_SM* me) {
+	switch (Q_SIG(me)) {
+	case Q_ENTRY_SIG:
+		me->drawMenuItems = 1;
+		me->menuChoice = 0;
+		me->drawMenuMarker = 1;
+		return Q_HANDLED();
+
+	case Q_INIT_SIG:
+		return Q_HANDLED();
+
+	case Q_EXIT_SIG:
+		me->eraseMenuItems = 1;
+		me->eraseMenuMarker = 1;
+		return Q_HANDLED();
+
+	case ENCODER_UP:
+		me->menuChoice = (me->menuChoice+1)%3;
+		me->drawMenuMarker = 1;
+		return Q_HANDLED();
+
+	case ENCODER_DOWN:
+		me->menuChoice = (me->menuChoice+2)%3;
+		me->drawMenuMarker = 1;
+		return Q_HANDLED();
+
+	case ENCODER_CLICK:
+		switch (me->menuChoice) {
+		case 0:
+			return Q_TRAN(&SM_state_main);
+		case 1:
+			return Q_TRAN(&SM_state_main);
+		case 2:
+			return Q_TRAN(&SM_state_main);
 		}
 	}
 
