@@ -116,13 +116,14 @@ void clrScr(void);
 void drawHLine(int x, int y, int l);
 void fillRect(int x1, int y1, int x2, int y2);
 void fillBackground(int x1, int y1, int x2, int y2);
+void drawBackground();
 
 // Draw and erase functions
 
 // main screen
 void drawOctave(int octave);
 void eraseOctave();
-void drawNote(float f);
+void drawNote(int note);
 void eraseNote();
 void drawFreq(float f);
 void eraseFreq();
@@ -132,14 +133,29 @@ void drawVolume(int cur_vol);
 void eraseVolume();
 void drawGoalBar();
 void eraseGoalBar();
-void drawFreqBar(int cents, int prevCents);
-void eraseFreqBar(int prevCents);
+void drawFreqBar(int cents);
+void eraseFreqBar();
+
+// history drawing
+void resetHistory();
+void drawHistory();
+void eraseHistory();
+void stepHistory();
 
 // menu
 void drawMenuMarker(int i);
 void eraseMenuMarker();
 void drawMenuItem(int i, char* txt);
 void eraseMenuItem(int i);
+
+void drawOctaveRange(int i);
+void eraseOctaveRange();
+void drawOctaveText();
+void eraseOctaveText();
+void drawA4Text();
+void eraseA4Text();
+void drawA4(int tempA4);
+void eraseA4();
 
 void drawVolume(int cur_vol);
 void clearVolume();

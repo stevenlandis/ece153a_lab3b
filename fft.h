@@ -31,5 +31,5 @@ void read_fsl_values(float* q, int n);
 
 float do_zero_cross_fft();
 float fft(float* q, float* w, int n, int m, float sample_f);
-
+void setOctaveRange(int oct);
 #endif

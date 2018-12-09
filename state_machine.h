@@ -4,28 +4,42 @@
 #include "xil_types.h"
 #include "qpn_port.h"
 
+enum UI_FLAG_TAG {
+	NOTHING,
+	DRAW,
+	ERASE
+};
+typedef enum UI_FLAG_TAG UI_FLAG;
+
 // declare struct for state machine
 typedef struct Lab3b_SM_Tag {
 	QActive super;
 
 	// internal data
-	int octave;
-	float f;
-	float cents, prevCents;
+	int octaveRange;
+	int A4;
 	int menuChoice;
 
+	// internal button state
+	// to make sure button is released before re-pressing
+	int buttonState;
+
 	// draw/erase flags
-	int drawBackground;
-	int drawNote, eraseNote;
-	int drawOctave, eraseOctave;
-	int drawFreq, eraseFreq;
-	int drawFHz, eraseFHz;
-	int drawCents, eraseCents;
-	int drawGoalBar, eraseGoalBar;
-	int drawFreqBar, eraseFreqBar;
-	int drawMenuItems, eraseMenuItems;
-	int drawMenuMarker, eraseMenuMarker;
-	int drawA4Hz, eraseA4Hz;
+	UI_FLAG gBackground;
+	UI_FLAG gNote;
+	UI_FLAG gOctave;
+	UI_FLAG gFreq;
+	UI_FLAG gCents;
+	UI_FLAG gGoalBar;
+	UI_FLAG gFreqBar;
+
+	UI_FLAG gMenuItems;
+	UI_FLAG gMenuMarker;
+
+	UI_FLAG gDrawOctaveRange;
+	UI_FLAG gOctaveText;
+	UI_FLAG gA4Text;
+	UI_FLAG gDrawA4;
 
 } Lab3b_SM;
 

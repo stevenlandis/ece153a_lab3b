@@ -2,7 +2,7 @@
 #include "qpn_port.h"
 #include "xil_printf.h"
 #include "note.h"
-
+#include "fft.h"
 // --------------------------------
 //  Type and Variable Declarations
 // --------------------------------
@@ -10,10 +10,13 @@
 enum Lab3bSignals {
 	ENCODER_UP = Q_USER_SIG,
 	ENCODER_DOWN,
-	ENCODER_CLICK
+	BUTTON_PRESSED,         // fires when encoder changes and button is down
+					        // and fails when button is pressed and twisted at the same time
+	BUTTON_RELEASED,
+	BUTTON_CLICK            // fires when button changes from up to down
 };
 
-static QEvent l_lab2aQueue[30];
+static QEvent l_lab2aQueue[1000];
 
 // declare main state machine
 Lab3b_SM SM_SM;
@@ -32,6 +35,8 @@ void SM_ctor();
 QState SM_state_init(Lab3b_SM* me);
 QState SM_state_main(Lab3b_SM* me);
 QState SM_state_menu(Lab3b_SM* me);
+QState SM_state_setOctave(Lab3b_SM* me);
+QState SM_state_setA4(Lab3b_SM* me);
 void updateEncoderState(u32 data);
 void twistDown();
 void twistUp();
@@ -61,7 +66,10 @@ void encoderHandler(u32 encoderData) {
 	u32 button = encoderData & 0b100;
 
 	if (button) {
-		QActive_post((QActive*)(&SM_SM), ENCODER_CLICK);
+		QActive_post((QActive*)(&SM_SM), BUTTON_PRESSED);
+		QActive_post((QActive*)(&SM_SM), BUTTON_RELEASED);
+	} else {
+//		QActive_post((QActive*)(&SM_SM), BUTTON_RELEASED);
 	}
 
 	u32 ab = encoderData & 0b11;
@@ -133,23 +141,32 @@ void SM_ctor() {
 
 	//initialize internal variables
 	// internal data
-	me->octave = 0;
-	me->f = 0;
-	me->cents = 0;
-	me->prevCents = 0;
+//	me->octave = 0;
+//	me->f = 0;
+//	me->cents = 0;
+//	me->prevCents = 0;
 	me->menuChoice = 0;
+	me->octaveRange = 0;
+	me->A4 = 440;
+	// button state starts as up
+	me->buttonState = 0;
 
-	// draw/erase flags
-	me->drawBackground = 0;
-	me->drawNote = me->eraseNote = 0;
-	me->drawOctave = me->eraseOctave = 0;
-	me->drawFreq = me->eraseFreq = 0;
-	me->drawCents = me->eraseCents = 0;
-	me->drawGoalBar = me->eraseGoalBar = 0;
-	me->drawFreqBar = me->eraseFreqBar = 0;
-	me->drawMenuItems = me->eraseMenuItems = 0;
-	me->drawMenuMarker = me->eraseMenuMarker = 0;
-	me->drawA4Hz = me->eraseA4Hz = 0;
+	// reset all drawing flags
+	me->gBackground = NOTHING;
+	me->gNote = NOTHING;
+	me->gOctave = NOTHING;
+	me->gFreq = NOTHING;
+	me->gCents = NOTHING;
+	me->gGoalBar = NOTHING;
+	me->gFreqBar = NOTHING;
+
+	me->gMenuItems = NOTHING;
+	me->gMenuMarker = NOTHING;
+
+	me->gDrawOctaveRange = NOTHING;
+	me->gOctaveText = NOTHING;
+	me->gA4Text = NOTHING;
+	me->gDrawA4 = NOTHING;
 
 	QActive_ctor(&me->super, (QStateHandler)&SM_state_init);
 }
@@ -157,21 +174,40 @@ void SM_ctor() {
 // first starting, screen in unknown state
 QState SM_state_init(Lab3b_SM *me) {
 	xil_printf("init\n");
-	me->drawBackground = 1;
+	me->gBackground = DRAW;
 	setA4(440);
+	setOctaveRange(9);
     return Q_TRAN(&SM_state_main);
+}
+
+QState SM_state_on(Lab3b_SM* me) {
+	switch(Q_SIG(me)) {
+	case Q_INIT_SIG:
+		return Q_TRAN(&SM_state_main);
+	case BUTTON_PRESSED:
+		if (me->buttonState == 0) {
+			QActive_post((QActive*)(&SM_SM), BUTTON_CLICK);
+			me->buttonState = 1;
+		}
+		return Q_HANDLED();
+	case BUTTON_RELEASED:
+		me->buttonState = 0;
+		return Q_HANDLED();
+	}
+
+	return Q_SUPER(&QHsm_top);
 }
 
 QState SM_state_main(Lab3b_SM *me) {
 	switch (Q_SIG(me)) {
 		case Q_ENTRY_SIG: {
 //			xil_printf("on-entry\n");
-			me->drawNote = 1;
-			me->drawOctave = 1;
-			me->drawFreq = 1;
-			me->drawCents = 1;
-			me->drawGoalBar = 1;
-			me->drawFreqBar = 1;
+			me->gNote = DRAW;
+			me->gOctave = DRAW;
+			me->gFreq = DRAW;
+			me->gCents = DRAW;
+			me->gGoalBar = DRAW;
+			me->gFreqBar = DRAW;
 			return Q_HANDLED();
 			}
 
@@ -181,66 +217,145 @@ QState SM_state_main(Lab3b_SM *me) {
 		}
 
 		case Q_EXIT_SIG: {
-			me->drawNote = 0;
-			me->drawOctave = 0;
-			me->drawFreq = 0;
-			me->drawCents = 0;
-			me->drawGoalBar = 0;
-			me->drawFreqBar = 0;
-
-			me->eraseNote = 1;
-			me->eraseOctave = 1;
-			me->eraseFreq = 1;
-			me->eraseCents = 1;
-			me->eraseGoalBar = 1;
-			me->eraseFreqBar = 1;
+			me->gNote = ERASE;
+			me->gOctave = ERASE;
+			me->gFreq = ERASE;
+			me->gCents = ERASE;
+			me->gGoalBar = ERASE;
+			me->gFreqBar = ERASE;
 
 			return Q_HANDLED();
 		}
 
-		case ENCODER_CLICK:
+		case BUTTON_CLICK:
 			return Q_TRAN(&SM_state_menu);
 	}
 
-	return Q_SUPER(&QHsm_top);
+	return Q_SUPER(&SM_state_on);
 }
 
 QState SM_state_menu(Lab3b_SM* me) {
 	switch (Q_SIG(me)) {
 	case Q_ENTRY_SIG:
-		me->drawMenuItems = 1;
+		me->gMenuItems = DRAW;
 		me->menuChoice = 0;
-		me->drawMenuMarker = 1;
+		me->gMenuMarker = DRAW;
 		return Q_HANDLED();
 
 	case Q_INIT_SIG:
 		return Q_HANDLED();
 
 	case Q_EXIT_SIG:
-		me->eraseMenuItems = 1;
-		me->eraseMenuMarker = 1;
+		me->gMenuItems = ERASE;
+		me->gMenuMarker = ERASE;
 		return Q_HANDLED();
 
 	case ENCODER_UP:
-		me->menuChoice = (me->menuChoice+1)%3;
-		me->drawMenuMarker = 1;
+		if (me->menuChoice < 2) {
+			me->menuChoice++;
+			me->gMenuMarker = DRAW;
+		}
 		return Q_HANDLED();
 
 	case ENCODER_DOWN:
-		me->menuChoice = (me->menuChoice+2)%3;
-		me->drawMenuMarker = 1;
+		if (me->menuChoice > 0) {
+			me->menuChoice--;
+			me->gMenuMarker = DRAW;
+		}
 		return Q_HANDLED();
 
-	case ENCODER_CLICK:
+	case BUTTON_CLICK:
 		switch (me->menuChoice) {
 		case 0:
-			return Q_TRAN(&SM_state_main);
+			return Q_TRAN(&SM_state_setOctave);
 		case 1:
-			return Q_TRAN(&SM_state_main);
+			return Q_TRAN(&SM_state_setA4);
 		case 2:
 			return Q_TRAN(&SM_state_main);
 		}
 	}
 
-	return Q_SUPER(&QHsm_top);
+	return Q_SUPER(&SM_state_on);
 }
+QState SM_state_setOctave(Lab3b_SM* me) {
+	switch (Q_SIG(me)){
+	case Q_ENTRY_SIG:{
+		me->gOctaveText = DRAW;
+		me->gDrawOctaveRange = DRAW;
+		return Q_HANDLED();
+	}
+	case Q_EXIT_SIG:{ //erase flags
+		me->gOctaveText = ERASE;
+		me->gDrawOctaveRange= ERASE;
+		return Q_HANDLED();
+	}
+	case Q_INIT_SIG:{
+		return Q_HANDLED();
+	}
+	case ENCODER_UP:{
+		if(me->octaveRange<9){
+			me->octaveRange++;
+			me->gDrawOctaveRange = DRAW;
+		}
+		return Q_HANDLED();
+	}
+	case ENCODER_DOWN:{
+		if(me->octaveRange>0){
+			me->octaveRange--;
+			me->gDrawOctaveRange = DRAW;
+		}
+		return Q_HANDLED();
+
+	}
+	case BUTTON_CLICK:{ //set octaveChoice
+		setOctaveRange(me->octaveRange);
+		return Q_TRAN(&SM_state_main);
+	}
+	}
+	return Q_SUPER(&SM_state_on);
+
+
+}
+
+QState SM_state_setA4(Lab3b_SM* me){
+	switch (Q_SIG(me)){
+	case Q_ENTRY_SIG:{
+		me->gA4Text = DRAW;
+		me->gDrawA4 = DRAW;
+		return Q_HANDLED();
+	}
+	case Q_EXIT_SIG:{ //erase flags
+		me->gA4Text = ERASE;
+		me->gDrawA4= ERASE;
+		return Q_HANDLED();
+	}
+	case Q_INIT_SIG:{
+		return Q_HANDLED();
+	}
+	case ENCODER_UP:{
+		if(me->A4<460){
+			me->A4++;
+			me->gDrawA4= DRAW;
+		}
+		return Q_HANDLED();
+	}
+	case ENCODER_DOWN:{
+		if(me->A4>420){
+			me->A4--;
+			me->gDrawA4 = DRAW;
+		}
+		return Q_HANDLED();
+
+	}
+	case BUTTON_CLICK:{ //set octaveChoice
+		setA4(me->A4);
+		return Q_TRAN(&SM_state_main);
+	}
+	}
+	return Q_SUPER(&SM_state_on);
+
+
+
+
+}
+

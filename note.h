@@ -22,10 +22,13 @@ Returns
 #define root2 1.0594631 //twelfth root of 2
 #define root1200 1.000577790 // 1/1200 root of 2
 
+extern float C0;
+
 void setA4(float A4);
+char* getNoteStr(int note);
 char* findNote(float f);
 int findNoteFreq(float f);
-void getFreqInfo(float f);
+void getFreqInfo(float f, int* oct, int* node, int* cents);
 int getCents(float f);
 int getOctave(float f);
 int getNoteN(float f);

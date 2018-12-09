@@ -3,12 +3,17 @@
 #include "trig.h"
 #include <xil_printf.h>
 #include "stream_grabber.h"
+#include "note.h"
 
 #define PI 3.141592//65358979323846
+#define SAMPLE_RATE 48828.125 // Hz
 #define SAMPLES 4096 // AXI4 Streaming Data FIFO has size 512
 #define DOWN_SAMPLES 8
 #define FFT_SAMPLES SAMPLES/DOWN_SAMPLES
 #define M 9 //2^m=samples
+
+// Function Declarations
+void read_fsl_values_skip(float* q, int n);
 
 static float new_[512];
 static float new_im[512];
@@ -16,9 +21,25 @@ static float new_im[512];
 // Buffers for storing samples and doing fourier transform
 static float q[FFT_SAMPLES];
 static float w[FFT_SAMPLES];
+static float sampleSkip;
+
+void setOctaveRange(int oct) {
+	float targetF = C0*(1<<oct);
+	sampleSkip = SAMPLE_RATE /(4 * targetF);
+
+	// enforce bounds on sampleSkip
+	if (sampleSkip > 8) {
+		sampleSkip = 8;
+	} else if (sampleSkip < 1) {
+		sampleSkip = 1;
+	}
+
+//	xil_printf("ss: %d\n", (int)(1000*sampleSkip));
+}
 
 void get_fft_samples() {
-	read_fsl_values(q, SAMPLES);
+	//read_fsl_values(q, SAMPLES);
+	read_fsl_values_skip(q, 512);
 }
 
 float do_zero_cross_fft() {
@@ -60,7 +81,7 @@ float do_zero_cross_fft() {
 }
 
 float do_fft() {
-	float sample_f = 100*1000*1000/2048.0/DOWN_SAMPLES;
+	float sample_f = SAMPLE_RATE/sampleSkip;
 	  //xil_printf("sample frequency: %d \r\n",(int)sample_f);
 
 	  //zero w array
@@ -89,6 +110,18 @@ void read_fsl_values(float* q, int n) {
 //	   x = stream_grabber_read_sample(i);
 	   q[i/DOWN_SAMPLES] = .000000049173832/DOWN_SAMPLES*x;
    }
+}
+
+void read_fsl_values_skip(float* q, int n) {
+    int i;
+    unsigned int x;
+    float skipSum = 0;
+    stream_grabber_wait_enough_samples(SAMPLES);
+    for(i = 0; i < n; i++) {
+	    x = stream_grabber_read_sample((int)skipSum);
+	    skipSum += sampleSkip;
+	    q[i] = .000000049173832*x;
+    }
 }
 
 /*

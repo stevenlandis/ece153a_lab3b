@@ -46,6 +46,7 @@
 
 #include "lcd.h"
 #include "math.h"
+#include "stdlib.h"
 #include "note.h"
 
 // Global variables
@@ -423,6 +424,11 @@ void fillBackground(int x1, int y1, int x2, int y2)
    clrXY();
 }
 
+void drawBackground() {
+	setColor(BACKGROUND);
+	fillRectWH(0,0,240,320);
+}
+
 void drawOctave(int n){
 	setFont(BigFont);
 	setColor(255,255,255);
@@ -435,14 +441,14 @@ void eraseOctave() {
 	fillRect(120-8,25,120+8-1,25+16-1);
 }
 
-void drawNote(float f){
+void drawNote(int note){
 	setFont(BigFont);
 	setColor(255,255,255);
 	setColorBg(BACKGROUND);
-	char* note = findNote(f);
+	char* noteStr = getNoteStr(note);
 //	xil_printf("%s\n", note);
-	printChar(note[0],104-8,25);
-	printChar(note[1],136-8,25);
+	printChar(noteStr[0],104-8,25);
+	printChar(noteStr[1],136-8,25);
 //	lcdPrint(note, 104-8,25);
 }
 
@@ -567,7 +573,8 @@ void eraseGoalBar() {
 	fillRect(118,200,122,289);
 }
 
-void drawFreqBar(int cents,int prevCents){
+static int prevCents = 0;
+void drawFreqBar(int cents){
 	eraseFreqBar(prevCents);
 	if(cents>-6 && cents<6){
 		setColor(0,255,0);
@@ -577,13 +584,68 @@ void drawFreqBar(int cents,int prevCents){
 		setColor(255,0,0);
 		fillRect(118+cents,222,122+cents,267);
 	}
+	prevCents = cents;
 }
 
-void eraseFreqBar(int prevCents) {
+void eraseFreqBar() {
 	setColor(BACKGROUND);
 	fillRect(118+prevCents,222,122+prevCents,267);
 
 	drawGoalBar();
+}
+
+#define H_MARKER_SIZE 4
+#define H_N_MARKERS 10
+#define H_X (120-49-H_MARKER_SIZE/2)
+#define H_Y 200
+static int H_markers[H_N_MARKERS];
+
+void resetHistory() {
+	for (int i = 0; i < H_N_MARKERS; i++) {
+		H_markers[i] = -1;
+	}
+}
+
+void eraseHistory() {
+	setColor(BACKGROUND);
+	for (int i = 0; i < H_N_MARKERS; i++) {
+		int x = H_markers[i];
+		if (x < 0) continue;
+
+		fillRectWH(
+			H_X+x,
+			H_Y+H_MARKER_SIZE*i,
+			H_MARKER_SIZE,
+			H_MARKER_SIZE);
+	}
+}
+
+void drawHistory() {
+	for (int i = 0; i < H_N_MARKERS; i++) {
+		int x = H_markers[i];
+		if (x < 0) continue;
+
+		int centsError = 5*abs(x-49);
+		xil_printf("x: %d, e: %d\n",x, centsError);
+		setColor(
+			centsError,
+			255-centsError,
+			0
+		);
+		if (x < 0) continue;
+		fillRectWH(
+			H_X+x,
+			H_Y+H_MARKER_SIZE*i,
+			H_MARKER_SIZE,
+			H_MARKER_SIZE);
+	}
+}
+
+void stepHistory(int cents) {
+	for (int i = H_N_MARKERS-2; i >= 0; i--) {
+		H_markers[i+1] = H_markers[i];
+	}
+	H_markers[0] = 49+cents;
 }
 
 #define MENU_MARGIN 20
@@ -635,6 +697,65 @@ void eraseMenuItem(int i) {
 		MENU_MARGIN + i*(16+MENU_GAP),
 		10*16,
 		16);
+}
+
+void drawOctaveRange(int i){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+	printChar(i+'0',120-8,160-8);
+}
+
+void eraseOctaveRange(){
+	setColor(BACKGROUND);
+	fillRectWH(120-8,160-8,16,16);
+
+}
+
+void drawOctaveText(){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+	lcdPrint("Select Octave", 120-13*8, 160-10*8);
+}
+
+void eraseOctaveText(){
+	setColor(BACKGROUND);
+	fillRectWH(120-13*8,160-10*8,13*16,16);
+}
+
+void drawA4Text(){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+	lcdPrint("Select A4", 120-9*8, 160-10*8);
+}
+
+void eraseA4Text(){
+	setColor(BACKGROUND);
+	fillRectWH(120-9*8,160-10*8,9*16,16);
+}
+
+
+void drawA4(int tempA4){
+	setFont(BigFont);
+	setColor(255,255,255);
+	setColorBg(BACKGROUND);
+
+	int x = 120+1*8;
+	int i = 0;
+	while (i < 3) {
+		printChar(tempA4%10 + '0', x, 160-8);
+		tempA4 /= 10;
+		x -= 16;
+		i++;
+	}
+}
+
+void eraseA4(){
+	setColor(BACKGROUND);
+	fillRectWH(120-3*8,160-8,3*16,16);
+
 }
 
 

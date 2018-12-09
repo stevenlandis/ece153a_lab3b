@@ -18,6 +18,10 @@ float fLog(float f) {
 	return log2f(f/C0);
 }
 
+char* getNoteStr(int note) {
+	return notes[note];
+}
+
 //finds and prints note of frequency and deviation from note
 //finds and prints note of frequency and deviation from note
 char* findNote(float f) {
@@ -94,35 +98,38 @@ int getNoteN(float f) {
 	return floor(12*(fl - floor(fl)));
 }
 
-void getFreqInfo(float f) {
-	int oct = 0;
-	int note = 0;
-	int cents = 0;
+void getFreqInfo(float f, int* oct, int* note, int* cents) {
+	*oct = 0;
+	*note = 0;
+	*cents = 0;
 	float testF = C0;
-
-	xil_printf("f: %d ==> ",(int)f);
 
 	while (2*testF <= f) {
 //		xil_printf("testF: %d\n",(int)testF);
 		testF *= 2;
-		oct++;
+		(*oct)++;
 	}
-
-	xil_printf("o:%d",oct);
 
 	while (root2*testF <= f) {
 //		xil_printf("testF: %d\n",(int)testF);
 		testF *= root2;
-		note++;
+		(*note)++;
 	}
-
-	xil_printf(", n:%d",note);
 
 	while (root1200*testF <= f) {
 		testF *= root1200;
-		cents++;
+		(*cents)++;
 	}
-	xil_printf(", c:%d\n",cents);
+
+	// do the rounding
+	if ((*cents) > 50) {
+		(*cents) -= 100;
+		(*note)++;
+		if ((*note) >= 12) {
+			(*note) = 0;
+			(*oct)++;
+		}
+	}
 }
 
 int findNoteFreq(float f) {
