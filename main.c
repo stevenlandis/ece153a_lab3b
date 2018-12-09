@@ -12,7 +12,6 @@
 #define CLOCK 100000000.0 //clock speed
 
 //#define PROFILE_ON
-
 int main() {
    int ticks; //used for timer
    float frequency; 
@@ -29,18 +28,18 @@ int main() {
    // set up peripherals
    per_init2();
 
-   setColor(0,0,255);
-   fillRect(0,0,240-1,320-1);
-
-   resetHistory();
-   drawHistory();
-   for (int i = 0; i < 10; i++) {
-	   stepHistory(4*i);
-   }
-   stepHistory(-49);
-   stepHistory(50);
-   drawHistory();
-   eraseHistory();
+//   setColor(0,0,255);
+//   fillRect(0,0,240-1,320-1);
+//
+//   resetHistory();
+//   drawHistory();
+//   for (int i = 0; i < 10; i++) {
+//	   stepHistory(4*i);
+//   }
+//   stepHistory(-49);
+//   stepHistory(50);
+//   drawHistory();
+//   eraseHistory();
 
 //   drawOctave(4);
 //   eraseOctave();
@@ -69,7 +68,7 @@ int main() {
 //   drawMenuMarker(0);
 //   drawMenuMarker(1);
 //   drawMenuMarker(5);
-   return 0;
+//   return 0;
 
    // initialize state machine
    SM_init();

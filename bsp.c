@@ -90,6 +90,20 @@ void QF_onIdle() {
 		break;
 	}
 
+	switch(SM_SM.gHistory) {
+	case NOTHING:
+		break;
+	case DRAW:
+		eraseHistory();
+		stepHistory(cents);
+		drawHistory();
+		break;
+	case ERASE:
+		eraseHistory();
+		SM_SM.gHistory = NOTHING;
+		break;
+	}
+
 	if (SM_SM.gGoalBar == DRAW) {
 		drawGoalBar();
 		SM_SM.gGoalBar = NOTHING;

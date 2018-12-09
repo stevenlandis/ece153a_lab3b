@@ -19,10 +19,12 @@ typedef struct Lab3b_SM_Tag {
 	int octaveRange;
 	int A4;
 	int menuChoice;
+	int errorMode;
 
 	// internal button state
 	// to make sure button is released before re-pressing
 	int buttonState;
+	int buttonWaited;
 
 	// draw/erase flags
 	UI_FLAG gBackground;
@@ -32,6 +34,7 @@ typedef struct Lab3b_SM_Tag {
 	UI_FLAG gCents;
 	UI_FLAG gGoalBar;
 	UI_FLAG gFreqBar;
+	UI_FLAG gHistory;
 
 	UI_FLAG gMenuItems;
 	UI_FLAG gMenuMarker;

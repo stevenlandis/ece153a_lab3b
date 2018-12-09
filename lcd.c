@@ -595,7 +595,7 @@ void eraseFreqBar() {
 }
 
 #define H_MARKER_SIZE 4
-#define H_N_MARKERS 10
+#define H_N_MARKERS 20
 #define H_X (120-49-H_MARKER_SIZE/2)
 #define H_Y 200
 static int H_markers[H_N_MARKERS];
@@ -618,6 +618,10 @@ void eraseHistory() {
 			H_MARKER_SIZE,
 			H_MARKER_SIZE);
 	}
+
+	// erase the line down the center
+	setColor(BACKGROUND);
+	fillRectWH(120,200,1,H_MARKER_SIZE*H_N_MARKERS);
 }
 
 void drawHistory() {
@@ -626,7 +630,7 @@ void drawHistory() {
 		if (x < 0) continue;
 
 		int centsError = 5*abs(x-49);
-		xil_printf("x: %d, e: %d\n",x, centsError);
+//		xil_printf("x: %d, e: %d\n",x, centsError);
 		setColor(
 			centsError,
 			255-centsError,
@@ -639,6 +643,10 @@ void drawHistory() {
 			H_MARKER_SIZE,
 			H_MARKER_SIZE);
 	}
+
+	// draw the line down the center
+	setColor(255,255,255);
+	fillRectWH(120,200,1,H_MARKER_SIZE*H_N_MARKERS);
 }
 
 void stepHistory(int cents) {
@@ -650,7 +658,7 @@ void stepHistory(int cents) {
 
 #define MENU_MARGIN 20
 #define MENU_GAP 10
-#define MARKER_SIZE 6
+#define MARKER_SIZE 4
 static int prevMenu = 0;
 void drawMenuMarker(int i) {
 	eraseMenuMarker();

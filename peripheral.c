@@ -79,14 +79,21 @@ void per_init2() {
 			XPAR_MICROBLAZE_0_AXI_INTC_AXI_TIMER_0_INTERRUPT_INTR,
 			TimerHandler);
 
-		// set options for the first timer
-		controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
-		XTmrCtr_SetOptions(&per_timer, 0, controlReg);
+		XTmrCtr_SetOptions(
+			&per_timer,
+			0,
+			XTC_INT_MODE_OPTION
+		);
+		XTmrCtr_SetResetValue(&per_timer, 0, 0xFFFFFFFF-200*100000);
 
-		// set options for the second timer
-		XTmrCtr_SetOptions(&per_timer, 1,
-			XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION);
-		XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
+//		// set options for the first timer
+//		controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
+//		XTmrCtr_SetOptions(&per_timer, 0, controlReg);
+//
+//		// set options for the second timer
+//		XTmrCtr_SetOptions(&per_timer, 1,
+//			XTC_INT_MODE_OPTION);
+//		XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
 
 	// ---------------------------------
 	//  Enable Interrupts on Microblaze
@@ -181,16 +188,27 @@ void per_init() {
 //	// timer time
 //	XTmrCtr_SetResetValue(&per_timer, 0, 0xFFFFFFFF-TIMER_DELAY);
 
-	// set options for the first timer
+//	// set options for the first timer
 	u32 controlReg;
-	controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
-	XTmrCtr_SetOptions(&per_timer, 0, controlReg);
+//	controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
+//	XTmrCtr_SetOptions(&per_timer, 0, controlReg);
+
+//	// set options for the first timer
+//	XTmrCtr_SetOptions(&per_timer, 0,
+//		XTC_INT_MODE_OPTION | XTC_DOWN_COUNT_OPTION);
+//	XTmrCtr_SetResetValue(&per_timer, 0, 0xFFFFFFFF-10000*10000*2);
+
+//	// set options for the second timer
+//	XTmrCtr_SetOptions(&per_timer, 1,
+//		XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION | XTC_DOWN_COUNT_OPTION);
+//	XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
 
 	// set options for the second timer
-	XTmrCtr_SetOptions(&per_timer, 1,
-		XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION | XTC_DOWN_COUNT_OPTION);
-	XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-10000*10000*2);
-	XTmrCtr_SetResetValue(&per_timer, 1, TIMER_DELAY);
+	XTmrCtr_SetOptions(
+		&per_timer,
+		0,
+		XTC_INT_MODE_OPTION);
+	XTmrCtr_SetResetValue(&per_timer, 0, 0xFFFFFFFF-10000*10000*2);
 
 	// Setup the control register to enable master mode
 	controlReg = XSpi_GetControlReg(&per_spi);
@@ -234,15 +252,16 @@ void TwistHandler(void *CallbackRef) {
 // Timer
 void TimerHandler(void * CallbackRef) {
 //	xil_printf("t");
-	XGpio_DiscreteWrite(&per_leds, 1, 0xAAAA);
+	XGpio_DiscreteWrite(&per_leds, 1, 0x0);
+	SM_SM.buttonWaited = 1;
 
 //	pollCode();
 
 	// acknowledge that interrupt handled
-	u32 controlReg = XTimerCtr_ReadReg(per_timer.BaseAddress, 1, XTC_TCSR_OFFSET);
+	u32 controlReg = XTimerCtr_ReadReg(per_timer.BaseAddress, 0, XTC_TCSR_OFFSET);
 	XTmrCtr_WriteReg(
 		per_timer.BaseAddress,
-		1,
+		0,
 		XTC_TCSR_OFFSET,
 		controlReg | XTC_CSR_INT_OCCURED_MASK
 	);

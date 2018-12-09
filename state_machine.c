@@ -3,6 +3,7 @@
 #include "xil_printf.h"
 #include "note.h"
 #include "fft.h"
+#include "peripheral.h"
 // --------------------------------
 //  Type and Variable Declarations
 // --------------------------------
@@ -13,7 +14,8 @@ enum Lab3bSignals {
 	BUTTON_PRESSED,         // fires when encoder changes and button is down
 					        // and fails when button is pressed and twisted at the same time
 	BUTTON_RELEASED,
-	BUTTON_CLICK            // fires when button changes from up to down
+	BUTTON_CLICK,           // fires when button changes from up to down
+	SWITCH_TOGGLE
 };
 
 static QEvent l_lab2aQueue[1000];
@@ -62,6 +64,7 @@ void twistUp() {
 //	xil_printf("u\n");
 }
 
+static int pastSwitchState = 0;
 void encoderHandler(u32 encoderData) {
 	u32 button = encoderData & 0b100;
 
@@ -70,6 +73,13 @@ void encoderHandler(u32 encoderData) {
 		QActive_post((QActive*)(&SM_SM), BUTTON_RELEASED);
 	} else {
 //		QActive_post((QActive*)(&SM_SM), BUTTON_RELEASED);
+	}
+
+	u32 switchState = encoderData & 0b1000;
+
+	if (switchState != pastSwitchState) {
+		pastSwitchState = switchState;
+		QActive_post((QActive*)(&SM_SM), SWITCH_TOGGLE);
 	}
 
 	u32 ab = encoderData & 0b11;
@@ -146,10 +156,12 @@ void SM_ctor() {
 //	me->cents = 0;
 //	me->prevCents = 0;
 	me->menuChoice = 0;
+	me->errorMode = 0;
 	me->octaveRange = 0;
 	me->A4 = 440;
 	// button state starts as up
 	me->buttonState = 0;
+	me->buttonWaited = 1; // whether or not enough time has passed between button presses
 
 	// reset all drawing flags
 	me->gBackground = NOTHING;
@@ -159,6 +171,7 @@ void SM_ctor() {
 	me->gCents = NOTHING;
 	me->gGoalBar = NOTHING;
 	me->gFreqBar = NOTHING;
+	me->gHistory = NOTHING;
 
 	me->gMenuItems = NOTHING;
 	me->gMenuMarker = NOTHING;
@@ -185,7 +198,10 @@ QState SM_state_on(Lab3b_SM* me) {
 	case Q_INIT_SIG:
 		return Q_TRAN(&SM_state_main);
 	case BUTTON_PRESSED:
-		if (me->buttonState == 0) {
+		if (me->buttonState == 0 && me->buttonWaited) {
+			me->buttonWaited = 0;
+			XTmrCtr_Start(&per_timer, 0);
+			XGpio_DiscreteWrite(&per_leds, 1, 0xFFFF);
 			QActive_post((QActive*)(&SM_SM), BUTTON_CLICK);
 			me->buttonState = 1;
 		}
@@ -206,16 +222,20 @@ QState SM_state_main(Lab3b_SM *me) {
 			me->gOctave = DRAW;
 			me->gFreq = DRAW;
 			me->gCents = DRAW;
-			me->gGoalBar = DRAW;
-			me->gFreqBar = DRAW;
-			return Q_HANDLED();
+
+			if (me->errorMode == 0) {
+				me->gGoalBar = DRAW;
+				me->gFreqBar = DRAW;
+			} else {
+				me->gHistory = DRAW;
 			}
+			return Q_HANDLED();
+		}
 
 		case Q_INIT_SIG: {
 //			xil_printf("on-init\n");
 			return Q_HANDLED();
 		}
-
 		case Q_EXIT_SIG: {
 			me->gNote = ERASE;
 			me->gOctave = ERASE;
@@ -224,11 +244,32 @@ QState SM_state_main(Lab3b_SM *me) {
 			me->gGoalBar = ERASE;
 			me->gFreqBar = ERASE;
 
+			if (me->errorMode == 0) {
+				me->gGoalBar = ERASE;
+				me->gFreqBar = ERASE;
+			} else {
+				me->gHistory = ERASE;
+			}
+
 			return Q_HANDLED();
 		}
 
 		case BUTTON_CLICK:
 			return Q_TRAN(&SM_state_menu);
+
+		case SWITCH_TOGGLE:
+			if (me->errorMode == 0) {
+				me->errorMode = 1;
+				me->gGoalBar = ERASE;
+				me->gFreqBar = ERASE;
+				me->gHistory = DRAW;
+			} else {
+				me->errorMode = 0;
+				me->gGoalBar = DRAW;
+				me->gFreqBar = DRAW;
+				me->gHistory = ERASE;
+			}
+			return Q_HANDLED();
 	}
 
 	return Q_SUPER(&SM_state_on);
