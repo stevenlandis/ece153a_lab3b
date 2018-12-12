@@ -10,22 +10,17 @@
 
 #include "peripheral.h"
 
-struct T_InfoTag {
-	int addr;
-	char* name;
-	int count;
-};
-typedef struct T_InfoTag T_Info;
-
-//XTmrCtr timer; // Timer
-extern T_Info T_Data[];
-#define N_DATA 167
+////XTmrCtr timer; // Timer
+//extern T_Info T_Data[];
+//#define N_DATA 167
 
 extern int totalCount;
 
 int find_data(u32 address);
+int find_data_binary(u32 address);
 
 void pollCode();
+void toggleProfiling();
 
 void printTimerData();
 

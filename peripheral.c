@@ -12,18 +12,18 @@
 #include "state_machine.h"
 
 XGpio per_encoder;
-//static XGpio per_btns;
+XGpio per_btns;
 XGpio per_leds;
 XGpio per_dc;
 XSpi per_spi;
 XTmrCtr per_timer;
 
-void connect_interrupt(u8 id, XInterruptHandler handler) {
+void connect_interrupt(void* per_instance, u8 id, XInterruptHandler handler) {
 	XIntc_Connect(
 		&per_intc,
 		id,
 		handler,
-		&per_encoder
+		per_instance
 	);
 	XIntc_Enable(&per_intc, id);
 }
@@ -44,12 +44,24 @@ void per_init2() {
 	// encoder
 		XGpio_Initialize(&per_encoder, XPAR_ENCODER_DEVICE_ID);
 		connect_interrupt(
+			&per_encoder,
 			XPAR_MICROBLAZE_0_AXI_INTC_ENCODER_IP2INTC_IRPT_INTR,
 			TwistHandler);
 
 		XGpio_InterruptEnable(&per_encoder, 1);
 		XGpio_InterruptGlobalEnable(&per_encoder);
 		XGpio_SetDataDirection(&per_encoder, 1, 0xFFFFFFFF);
+
+	// buttons
+		XGpio_Initialize(&per_btns, XPAR_BTNS_DEVICE_ID);
+		connect_interrupt(
+			&per_btns,
+			XPAR_MICROBLAZE_0_AXI_INTC_BTNS_IP2INTC_IRPT_INTR,
+			ButtonHandler);
+
+		XGpio_InterruptEnable(&per_btns, 1);
+		XGpio_InterruptGlobalEnable(&per_btns);
+		XGpio_SetDataDirection(&per_btns, 1, 0xFFFFFFFF);
 
 	// lcd dc
 		XGpio_Initialize(&per_dc, XPAR_SPI_DC_DEVICE_ID);
@@ -76,15 +88,25 @@ void per_init2() {
 	// timer
 		XTmrCtr_Initialize(&per_timer, XPAR_AXI_TIMER_0_DEVICE_ID);
 		connect_interrupt(
+			&per_timer,
 			XPAR_MICROBLAZE_0_AXI_INTC_AXI_TIMER_0_INTERRUPT_INTR,
 			TimerHandler);
 
+		// Timer 0: encoder debouncing
 		XTmrCtr_SetOptions(
 			&per_timer,
 			0,
 			XTC_INT_MODE_OPTION
 		);
 		XTmrCtr_SetResetValue(&per_timer, 0, 0xFFFFFFFF-200*100000);
+
+		// Timer 1: Profiling
+		XTmrCtr_SetOptions(
+			&per_timer,
+			1,
+			XTC_INT_MODE_OPTION | XTC_AUTO_RELOAD_OPTION
+		);
+		XTmrCtr_SetResetValue(&per_timer, 1, 0xFFFFFFFF-1*100000);
 
 //		// set options for the first timer
 //		controlReg = XTmrCtr_GetOptions(&per_timer, 0) | XTC_CAPTURE_MODE_OPTION | XTC_INT_MODE_OPTION;
@@ -249,20 +271,59 @@ void TwistHandler(void *CallbackRef) {
 	XGpio_InterruptClear(&per_encoder, 0xFFFFFFFF);
 }
 
-// Timer
-void TimerHandler(void * CallbackRef) {
-//	xil_printf("t");
-	XGpio_DiscreteWrite(&per_leds, 1, 0x0);
-	SM_SM.buttonWaited = 1;
+// buttons
+void ButtonHandler(void *CallbackRef) {
+	u32 data = XGpio_DiscreteRead(&per_btns, 1);
 
-//	pollCode();
+	// write to led
+	XGpio_DiscreteWrite(&per_leds, 1, data);
 
+	if (data & 0b10) {
+		toggleProfiling();
+	}
+
+	// mark interrupt as handled
+	XGpio_InterruptClear(&per_btns, 0xFFFFFFFF);
+}
+
+int interruptFromTimer(int n) {
+	u32 timerInfo = XTmrCtr_ReadReg(
+		per_timer.BaseAddress,
+		n,
+		XTC_TCSR_OFFSET);
+
+	return timerInfo & XTC_CSR_INT_OCCURED_MASK;
+}
+
+void finishInterrupt(int n) {
 	// acknowledge that interrupt handled
-	u32 controlReg = XTimerCtr_ReadReg(per_timer.BaseAddress, 0, XTC_TCSR_OFFSET);
+	u32 controlReg = XTimerCtr_ReadReg(per_timer.BaseAddress, n, XTC_TCSR_OFFSET);
 	XTmrCtr_WriteReg(
 		per_timer.BaseAddress,
-		0,
+		n,
 		XTC_TCSR_OFFSET,
-		controlReg | XTC_CSR_INT_OCCURED_MASK
-	);
+		controlReg | XTC_CSR_INT_OCCURED_MASK);
+}
+
+// Timer
+void TimerHandler(void * CallbackRef) {
+
+	if (interruptFromTimer(0)) {
+		// interrupt is from timer 0
+		// for debouncing of encoder press
+		XGpio_DiscreteWrite(&per_leds, 1, 0x0);
+		SM_SM.buttonWaited = 1;
+
+		finishInterrupt(0);
+	} else if (interruptFromTimer(1)) {
+		// interrupt is from polling timer
+//		xil_printf("1\n");
+		pollCode();
+
+		finishInterrupt(1);
+	} else {
+		xil_printf("?\n");
+	}
+
+//	pollCode();
 }

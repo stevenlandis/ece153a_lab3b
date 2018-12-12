@@ -28,6 +28,7 @@ extern XSpi per_spi;
 extern XTmrCtr per_timer;
 
 void TwistHandler(void *CallbackRef);
+void ButtonHandler(void *CallbackRef);
 void TimerHandler(void * CallbackRef);
 
 void per_init();
